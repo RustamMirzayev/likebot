@@ -2,14 +2,14 @@ import { Telegraf, Markup } from "telegraf";
 
 const botToken = '7691683453:AAFYXGzYEvfYbhzErB_vfygKxXUvXXUgESo';
 if (!botToken) {
-  console.error("Bot token mavjud emas!");
+  console.error("Bot token topilmadi!");
   process.exit(1);
 }
 
 const bot = new Telegraf(botToken);
 
-// Har bir post uchun alohida like/unlike saqlaymiz
-const postReactions = new Map();
+// Har bir post uchun like/unlike va kimlar bosgani
+const postReactions = new Map(); // key: messageId, value: { like: Set, unlike: Set }
 
 bot.on("message", async (ctx) => {
   try {
@@ -20,15 +20,21 @@ bot.on("message", async (ctx) => {
     if (!hasHashtag) return;
 
     const msgId = ctx.message.message_id;
-    postReactions.set(msgId, { like: 0, unlike: 0 });
+    const chatId = ctx.chat.id;
+
+    // Har bir postga bosh holatda like/unlike uchun Setlar
+    postReactions.set(msgId, {
+      like: new Set(),
+      unlike: new Set()
+    });
 
     await ctx.reply(
       "Reaksiya qoldiring:",
       {
         reply_to_message_id: msgId,
         ...Markup.inlineKeyboard([
-          Markup.button.callback("👍", `like_${msgId}`),
-          Markup.button.callback("👎", `unlike_${msgId}`)
+          Markup.button.callback("👍 0", `like_${msgId}`),
+          Markup.button.callback("👎 0", `unlike_${msgId}`)
         ])
       }
     );
@@ -40,28 +46,37 @@ bot.on("message", async (ctx) => {
 bot.on("callback_query", async (ctx) => {
   try {
     const data = ctx.callbackQuery.data;
+    const fromId = ctx.from.id;
     const [action, msgId] = data.split("_");
-    const id = Number(msgId);
+    const messageId = Number(msgId);
 
-    if (!postReactions.has(id)) return;
+    const reaction = postReactions.get(messageId);
+    if (!reaction) return ctx.answerCbQuery("Post topilmadi.");
 
-    const reaction = postReactions.get(id);
+    if (reaction.like.has(fromId) || reaction.unlike.has(fromId)) {
+      return ctx.answerCbQuery("Siz allaqachon ovoz bergansiz!");
+    }
+
     if (action === "like") {
-      reaction.like++;
+      reaction.like.add(fromId);
       await ctx.answerCbQuery("Siz like berdingiz!");
     } else if (action === "unlike") {
-      reaction.unlike++;
+      reaction.unlike.add(fromId);
       await ctx.answerCbQuery("Siz unlike berdingiz!");
     }
 
+    const likeCount = reaction.like.size;
+    const unlikeCount = reaction.unlike.size;
+
     await ctx.editMessageReplyMarkup(
       Markup.inlineKeyboard([
-        Markup.button.callback(`👍 ${reaction.like}`, `like_${id}`),
-        Markup.button.callback(`👎 ${reaction.unlike}`, `unlike_${id}`)
+        Markup.button.callback(`👍 ${likeCount}`, `like_${messageId}`),
+        Markup.button.callback(`👎 ${unlikeCount}`, `unlike_${messageId}`)
       ])
     );
   } catch (err) {
     console.error("Callback xatolik:", err);
+    await ctx.answerCbQuery("Xatolik yuz berdi!");
   }
 });
 
