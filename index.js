@@ -1,30 +1,20 @@
 import { Telegraf, Markup } from "telegraf";
 
 const botToken = "7171985185:AAFEZwue6ATQI-Mz8NZNFhwv00OHKPsUXUs";
-if (!botToken) {
-  console.error("7171985185:AAFEZwue6ATQI-Mz8NZNFhwv00OHKPsUXUs");
-  process.exit(1);
-}
-
 const bot = new Telegraf(botToken);
 
 bot.on("message", async (ctx) => {
-  try {
-    console.log("Kelgan xabar:", ctx.message);
-    const text = ctx.message.text;
-    if (!text) return;
+  const text = ctx.message.text || ctx.message.caption;
+  console.log("Guruhdan kelgan xabar:", ctx.message); // muhim!
 
-    if (text.trim().endsWith("#")) {
-      await ctx.reply(
-        "Bu post oxirida # bor. Like yoki Unlike tugmalarini bosing.",
-        Markup.inlineKeyboard([
-          Markup.button.callback("👍 Like", "like"),
-          Markup.button.callback("👎 Unlike", "unlike"),
-        ])
-      );
-    }
-  } catch (error) {
-    console.error("Xatolik:", error);
+  if (text && text.trim().endsWith("#")) {
+    await ctx.reply(
+      "✅ Bu post oxirida # bor. Like yoki Unlike tugmalarini bosing.",
+      Markup.inlineKeyboard([
+        Markup.button.callback("👍 Like", "like"),
+        Markup.button.callback("👎 Unlike", "unlike"),
+      ])
+    );
   }
 });
 
@@ -39,7 +29,7 @@ bot.action("unlike", async (ctx) => {
 });
 
 bot.launch();
-console.log("Bot ishga tushdi");
+console.log("🤖 Bot ishga tushdi");
 
 process.once("SIGINT", () => bot.stop("SIGINT"));
 process.once("SIGTERM", () => bot.stop("SIGTERM"));
