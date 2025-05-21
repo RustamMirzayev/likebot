@@ -2,24 +2,28 @@ import { Telegraf, Markup } from 'telegraf';
 import { Low } from 'lowdb';
 import { JSONFile } from 'lowdb/node';
 
-const bot = new Telegraf('7691683453:AAFYXGzYEvfYbhzErB_vfygKxXUvXXUgESo'); // Tokeningizni yozing
+// Bot tokenni environment variable dan oling (railway uchun tavsiya etiladi)
+const bot = new Telegraf('7691683453:AAFYXGzYEvfYbhzErB_vfygKxXUvXXUgESo');
 
-// Lowdb uchun adapter yaratamiz
+// lowdb uchun adapter va default data
 const adapter = new JSONFile('db.json');
-const db = new Low(adapter);
+const defaultData = { ratings: [] };
+const db = new Low(adapter, defaultData);
 
-// Async funktsiyani ishga tushiramiz, await ishlatish uchun
 async function main() {
+  // DBni o'qiymiz
   await db.read();
-  db.data ||= { ratings: [] };
 
-  // Guruhdagi har bir xabarga baholash tugmalari qo'shamiz
+  // Agar ma'lumot bo'lmasa defaultni qo'yamiz
+  db.data ||= defaultData;
+
+  // Har qanday guruhdagi matnga javobda baholash tugmalarini yuborish
   bot.on('message', async (ctx) => {
-    if (!ctx.message || !ctx.message.text) return;
-    if (ctx.message.chat.type === 'private') return; // faqat guruhlar uchun
+    // Private chatda ishlatmaymiz
+    if (ctx.chat.type === 'private' || !ctx.message.text) return;
 
     const msgId = ctx.message.message_id;
-    const chatId = ctx.message.chat.id;
+    const chatId = ctx.chat.id;
 
     await ctx.reply('Iltimos, ushbu xabarga baho bering:', {
       reply_to_message_id: msgId,
@@ -29,15 +33,15 @@ async function main() {
     });
   });
 
-  // Baholash tugmalariga ishlov beramiz
+  // Baholash tugmalari bosilganda ishlov berish
   bot.on('callback_query', async (ctx) => {
     const callbackData = ctx.callbackQuery.data;
     const userId = ctx.from.id;
 
     const [action, chatId, msgId] = callbackData.split('_');
 
-    // Foydalanuvchi allaqachon baho berganmi?
-    const oldRating = db.data.ratings.find(r => r.userId === userId && r.msgId === Number(msgId) && r.chatId === Number(chatId));
+    // Foydalanuvchi oldin baho berganmi?
+    const oldRating = db.data.ratings.find(r => r.userId === userId && r.msgId === msgId && r.chatId === chatId);
     if (oldRating) {
       await ctx.answerCbQuery('Siz allaqachon baho bergansiz!');
       return;
@@ -46,20 +50,20 @@ async function main() {
     // Yangi bahoni saqlaymiz
     db.data.ratings.push({
       userId,
-      chatId: Number(chatId),
-      msgId: Number(msgId),
+      chatId,
+      msgId,
       value: action === 'like' ? 1 : -1
     });
     await db.write();
 
     await ctx.answerCbQuery(`Siz ${action === 'like' ? '👍' : '👎'} baho berdingiz!`);
 
-    // Hozirgi xabar uchun baho statistikasi
-    const allRatings = db.data.ratings.filter(r => r.msgId === Number(msgId) && r.chatId === Number(chatId));
+    // Baho statistikasi
+    const allRatings = db.data.ratings.filter(r => r.msgId === msgId && r.chatId === chatId);
     const likes = allRatings.filter(r => r.value === 1).length;
     const dislikes = allRatings.filter(r => r.value === -1).length;
 
-    // Tugmalarni baholar soni bilan yangilaymiz
+    // Tugmalarni yangilash
     await ctx.editMessageReplyMarkup({
       inline_keyboard: [
         [
@@ -70,10 +74,8 @@ async function main() {
     });
   });
 
-  // Botni ishga tushiramiz
   bot.launch();
-  console.log('Bot ishga tushdi...');
+  console.log('Bot ishga tushdi');
 }
 
-// Async funktsiyani chaqiramiz
 main();
