@@ -1,6 +1,6 @@
 import { Telegraf, Markup } from "telegraf";
 
-const botToken = '7171985185:AAFEZwue6ATQI-Mz8NZNFhwv00OHKPsUXUs';
+const botToken = '7691683453:AAFYXGzYEvfYbhzErB_vfygKxXUvXXUgESo';
 if (!botToken) {
   console.error("Bot token yo'q!");
   process.exit(1);
