@@ -3,7 +3,7 @@ import { Low } from 'lowdb';
 import { JSONFile } from 'lowdb/node';
 
 // Bot tokenni environment variable dan oling (railway uchun tavsiya etiladi)
-const bot = new Telegraf(process.env.BOT_TOKEN);
+const bot = new Telegraf('7171985185:AAFEZwue6ATQI-Mz8NZNFhwv00OHKPsUXUs');
 
 // lowdb uchun adapter va default data
 const adapter = new JSONFile('db.json');
