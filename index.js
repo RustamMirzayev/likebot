@@ -2,69 +2,75 @@ import { Telegraf, Markup } from "telegraf";
 
 const botToken = '7691683453:AAFYXGzYEvfYbhzErB_vfygKxXUvXXUgESo';
 if (!botToken) {
-  console.error("7691683453:AAFYXGzYEvfYbhzErB_vfygKxXUvXXUgESo");
+  console.error("Bot token mavjud emas!");
   process.exit(1);
 }
 
 const bot = new Telegraf(botToken);
 
-let likeCount = 0;
-let unlikeCount = 0;
+// Har bir post uchun alohida like/unlike saqlaymiz
+const postReactions = new Map();
 
 bot.on("message", async (ctx) => {
   try {
     const text = ctx.message.text;
     if (!text) return;
 
-    const hasHashtag = ctx.message.entities?.some((e) => e.type === "hashtag");
+    const hasHashtag = ctx.message.entities?.some(e => e.type === "hashtag");
+    if (!hasHashtag) return;
 
-    if (hasHashtag) {
-      likeCount = 0;
-      unlikeCount = 0;
+    const msgId = ctx.message.message_id;
+    postReactions.set(msgId, { like: 0, unlike: 0 });
 
-      await ctx.reply(
-        "Postda hashtag bor. Like yoki Unlike tugmasini bosing:",
-        Markup.inlineKeyboard([
-          Markup.button.callback(`👍 ${likeCount}`, "like"),
-          Markup.button.callback(`👎 ${unlikeCount}`, "unlike"),
+    await ctx.reply(
+      "Reaksiya qoldiring:",
+      {
+        reply_to_message_id: msgId,
+        ...Markup.inlineKeyboard([
+          Markup.button.callback("👍", `like_${msgId}`),
+          Markup.button.callback("👎", `unlike_${msgId}`)
         ])
-      );
-    }
-  } catch (error) {
-    console.error("Xatolik:", error);
+      }
+    );
+  } catch (err) {
+    console.error("Xatolik:", err);
   }
 });
 
-bot.action("like", async (ctx) => {
-  likeCount++;
-  await ctx.answerCbQuery("Siz like berdingiz!");
+bot.on("callback_query", async (ctx) => {
+  try {
+    const data = ctx.callbackQuery.data;
+    const [action, msgId] = data.split("_");
+    const id = Number(msgId);
 
-  await ctx.editMessageReplyMarkup(
-    Markup.inlineKeyboard([
-      Markup.button.callback(`👍 ${likeCount}`, "like"),
-      Markup.button.callback(`👎 ${unlikeCount}`, "unlike"),
-    ])
-  );
-});
+    if (!postReactions.has(id)) return;
 
-bot.action("unlike", async (ctx) => {
-  unlikeCount++;
-  await ctx.answerCbQuery("Siz unlike berdingiz!");
+    const reaction = postReactions.get(id);
+    if (action === "like") {
+      reaction.like++;
+      await ctx.answerCbQuery("Siz like berdingiz!");
+    } else if (action === "unlike") {
+      reaction.unlike++;
+      await ctx.answerCbQuery("Siz unlike berdingiz!");
+    }
 
-  await ctx.editMessageReplyMarkup(
-    Markup.inlineKeyboard([
-      Markup.button.callback(`👍 ${likeCount}`, "like"),
-      Markup.button.callback(`👎 ${unlikeCount}`, "unlike"),
-    ])
-  );
+    await ctx.editMessageReplyMarkup(
+      Markup.inlineKeyboard([
+        Markup.button.callback(`👍 ${reaction.like}`, `like_${id}`),
+        Markup.button.callback(`👎 ${reaction.unlike}`, `unlike_${id}`)
+      ])
+    );
+  } catch (err) {
+    console.error("Callback xatolik:", err);
+  }
 });
 
 (async () => {
   try {
     await bot.launch();
     console.log("✅ Bot ishga tushdi");
-  } catch (error) {
-    console.error("❌ Bot ishga tushmadi:", error);
+  } catch (err) {
+    console.error("❌ Bot ishga tushmadi:", err);
   }
 })();
 
