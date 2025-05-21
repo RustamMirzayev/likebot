@@ -81,12 +81,17 @@ bot.on("callback_query", async (ctx) => {
     const unlikeCount = reaction.unlike.size;
 
     // Inline tugmalarni yangilash
-    await ctx.editMessageReplyMarkup(
+   // Inline tugmalarni yangilash
+    await bot.telegram.editMessageReplyMarkup(
+      ctx.chat.id,
+      ctx.callbackQuery.message.message_id,
+      null,
       Markup.inlineKeyboard([
         Markup.button.callback(`👍 ${likeCount}`, `like_${messageId}`),
         Markup.button.callback(`👎 ${unlikeCount}`, `unlike_${messageId}`)
       ])
     );
+
 
   } catch (err) {
     console.error("Callback xatolik:", err);
