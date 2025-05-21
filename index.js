@@ -68,7 +68,7 @@ bot.on("callback_query", async (ctx) => {
     // Ovoz berish
     if (action === "like") {
       reaction.like.add(fromId);
-      await ctx.answerCbQuery("Siz like berdingiz!");
+      // await ctx.answerCbQuery("Siz like berdingiz!");
     } else if (action === "unlike") {
       reaction.unlike.add(fromId);
       await ctx.answerCbQuery("Siz unlike berdingiz!");
