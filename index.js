@@ -82,15 +82,30 @@ bot.on("callback_query", async (ctx) => {
 
     // Inline tugmalarni yangilash
    // Inline tugmalarni yangilash
-    await bot.telegram.editMessageReplyMarkup(
-      ctx.chat.id,
-      ctx.callbackQuery.message.message_id,
-      null,
-      Markup.inlineKeyboard([
-        Markup.button.callback(`👍 ${likeCount}`, `like_${messageId}`),
-        Markup.button.callback(`👎 ${unlikeCount}`, `unlike_${messageId}`)
-      ])
-    );
+    await ctx.editMessageReplyMarkup(
+      {
+        reply_markup:  {
+            inline_keyboard: [
+                [
+                    {
+                        text: "text1",
+                        callback_data: "data1"
+                    }
+                ],
+                [
+                    {
+                        text: "text2",
+                        callback_data: "data2"
+                    }
+                ]
+            ]
+        }
+    },
+      chat_id: ctx.chat.id, 
+        message_id: ctx.callbackQuery.message.message_id
+    )
+);
+
 
 
   } catch (err) {
