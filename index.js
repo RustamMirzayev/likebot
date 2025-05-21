@@ -1,81 +1,53 @@
 import { Telegraf, Markup } from 'telegraf';
-import { Low } from 'lowdb';
-import { JSONFile } from 'lowdb/node';
 
-// Bot tokenni environment variable dan oling (railway uchun tavsiya etiladi)
 const bot = new Telegraf('7171985185:AAFEZwue6ATQI-Mz8NZNFhwv00OHKPsUXUs');
 
-// lowdb uchun adapter va default data
-const adapter = new JSONFile('db.json');
-const defaultData = { ratings: [] };
-const db = new Low(adapter, defaultData);
+const likesCount = {};
 
-async function main() {
-  // DBni o'qiymiz
-  await db.read();
+bot.on('message', async (ctx) => {
+  const text = ctx.message.text;
+  if (text && text.trim().endsWith('#')) {
+    const messageId = ctx.message.message_id;
 
-  // Agar ma'lumot bo'lmasa defaultni qo'yamiz
-  db.data ||= defaultData;
+    await ctx.reply('Like yoki Unlike bosing:', Markup.inlineKeyboard([
+      Markup.button.callback(`👍 Like (${likesCount[messageId]?.like || 0})`, `like_${messageId}`),
+      Markup.button.callback(`👎 Unlike (${likesCount[messageId]?.unlike || 0})`, `unlike_${messageId}`),
+    ]));
+  }
+});
 
-  // Har qanday guruhdagi matnga javobda baholash tugmalarini yuborish
-  bot.on('message', async (ctx) => {
-    // Private chatda ishlatmaymiz
-    if (ctx.chat.type === 'private' || !ctx.message.text) return;
+bot.on('callback_query', async (ctx) => {
+  const data = ctx.callbackQuery.data;
+  const userId = ctx.from.id;
 
-    const msgId = ctx.message.message_id;
-    const chatId = ctx.chat.id;
+  const [action, messageId] = data.split('_');
 
-    await ctx.reply('Iltimos, ushbu xabarga baho bering:', {
-      reply_to_message_id: msgId,
-      ...Markup.inlineKeyboard([
-        [Markup.button.callback('👍', `like_${chatId}_${msgId}`), Markup.button.callback('👎', `dislike_${chatId}_${msgId}`)]
-      ])
-    });
-  });
+  if (!likesCount[messageId]) {
+    likesCount[messageId] = { like: 0, unlike: 0, users: new Set() };
+  }
 
-  // Baholash tugmalari bosilganda ishlov berish
-  bot.on('callback_query', async (ctx) => {
-    const callbackData = ctx.callbackQuery.data;
-    const userId = ctx.from.id;
-
-    const [action, chatId, msgId] = callbackData.split('_');
-
-    // Foydalanuvchi oldin baho berganmi?
-    const oldRating = db.data.ratings.find(r => r.userId === userId && r.msgId === msgId && r.chatId === chatId);
-    if (oldRating) {
-      await ctx.answerCbQuery('Siz allaqachon baho bergansiz!');
-      return;
+  if (!likesCount[messageId].users.has(userId)) {
+    if (action === 'like') {
+      likesCount[messageId].like++;
+    } else if (action === 'unlike') {
+      likesCount[messageId].unlike++;
     }
+    likesCount[messageId].users.add(userId);
 
-    // Yangi bahoni saqlaymiz
-    db.data.ratings.push({
-      userId,
-      chatId,
-      msgId,
-      value: action === 'like' ? 1 : -1
-    });
-    await db.write();
-
-    await ctx.answerCbQuery(`Siz ${action === 'like' ? '👍' : '👎'} baho berdingiz!`);
-
-    // Baho statistikasi
-    const allRatings = db.data.ratings.filter(r => r.msgId === msgId && r.chatId === chatId);
-    const likes = allRatings.filter(r => r.value === 1).length;
-    const dislikes = allRatings.filter(r => r.value === -1).length;
-
-    // Tugmalarni yangilash
     await ctx.editMessageReplyMarkup({
       inline_keyboard: [
         [
-          Markup.button.callback(`👍 ${likes}`, `like_${chatId}_${msgId}`),
-          Markup.button.callback(`👎 ${dislikes}`, `dislike_${chatId}_${msgId}`)
+          { text: `👍 Like (${likesCount[messageId].like})`, callback_data: `like_${messageId}` },
+          { text: `👎 Unlike (${likesCount[messageId].unlike})`, callback_data: `unlike_${messageId}` }
         ]
       ]
     });
-  });
 
-  bot.launch();
-  console.log('Bot ishga tushdi');
-}
+    await ctx.answerCbQuery('Sizning ovozingiz qabul qilindi!');
+  } else {
+    await ctx.answerCbQuery('Siz allaqachon ovoz berdingiz!', { show_alert: true });
+  }
+});
 
-main();
+bot.launch();
+console.log('Bot ishga tushdi');
