@@ -25,12 +25,15 @@ async function main() {
     const msgId = ctx.message.message_id;
     const chatId = ctx.chat.id;
 
+    if(ctx.message.text.includes("#")){
+      
     await ctx.reply('Iltimos, ushbu xabarga baho bering:', {
       reply_to_message_id: msgId,
       ...Markup.inlineKeyboard([
         [Markup.button.callback('👍', `like_${chatId}_${msgId}`), Markup.button.callback('👎', `dislike_${chatId}_${msgId}`)]
       ])
     });
+    }
   });
 
   // Baholash tugmalari bosilganda ishlov berish
