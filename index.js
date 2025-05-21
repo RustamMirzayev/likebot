@@ -2,48 +2,61 @@ import { Telegraf, Markup } from "telegraf";
 
 const botToken = '7691683453:AAFYXGzYEvfYbhzErB_vfygKxXUvXXUgESo';
 if (!botToken) {
-  console.error("Bot token yo'q!");
+  console.error("7691683453:AAFYXGzYEvfYbhzErB_vfygKxXUvXXUgESo");
   process.exit(1);
 }
 
 const bot = new Telegraf(botToken);
 
-// Guruhdagi xabarlarni tinglash
+let likeCount = 0;
+let unlikeCount = 0;
+
 bot.on("message", async (ctx) => {
   try {
     const text = ctx.message.text;
-
-    // Matn mavjudligini tekshirish
     if (!text) return;
 
-    // Hashtag mavjudligini tekshirish (entities orqali)
     const hasHashtag = ctx.message.entities?.some((e) => e.type === "hashtag");
 
     if (hasHashtag) {
+      likeCount = 0;
+      unlikeCount = 0;
+
       await ctx.reply(
-        "Postda hashtag bor. Like yoki Unlike tugmalarini bosing:",
+        "Postda hashtag bor. Like yoki Unlike tugmasini bosing:",
         Markup.inlineKeyboard([
-          Markup.button.callback("👍 Like", "like"),
-          Markup.button.callback("👎 Unlike", "unlike"),
+          Markup.button.callback(`👍 ${likeCount}`, "like"),
+          Markup.button.callback(`👎 ${unlikeCount}`, "unlike"),
         ])
       );
     }
-
   } catch (error) {
     console.error("Xatolik:", error);
   }
 });
 
-// Like tugmasi bosilganda
 bot.action("like", async (ctx) => {
+  likeCount++;
   await ctx.answerCbQuery("Siz like berdingiz!");
-  await ctx.reply(`${ctx.from.first_name} postni like qildi 👍`);
+
+  await ctx.editMessageReplyMarkup(
+    Markup.inlineKeyboard([
+      Markup.button.callback(`👍 ${likeCount}`, "like"),
+      Markup.button.callback(`👎 ${unlikeCount}`, "unlike"),
+    ])
+  );
 });
 
-// Unlike tugmasi bosilganda
 bot.action("unlike", async (ctx) => {
+  unlikeCount++;
   await ctx.answerCbQuery("Siz unlike berdingiz!");
-  await ctx.reply(`${ctx.from.first_name} postni unlike qildi 👎`);
+
+  await ctx.editMessageReplyMarkup(
+    Markup.inlineKeyboard([
+      Markup.button.callback(`👍 ${likeCount}`, "like"),
+      Markup.button.callback(`👎 ${unlikeCount}`, "unlike"),
+    ])
+  );
 });
 
 (async () => {
