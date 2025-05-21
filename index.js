@@ -27,7 +27,7 @@ async function main() {
 
     if(ctx.message.text.includes("#")){
       
-    await ctx.reply('Iltimos, ushbu xabarga baho bering:', {
+    await ctx.reply('Iltimos, postga baho bering:', {
       reply_to_message_id: msgId,
       ...Markup.inlineKeyboard([
         [Markup.button.callback('👍', `like_${chatId}_${msgId}`), Markup.button.callback('👎', `dislike_${chatId}_${msgId}`)]
