@@ -8,7 +8,7 @@ if (!botToken) {
 
 const bot = new Telegraf(botToken);
 
-// Har bir post uchun like/unlike va kimlar bosgani
+// Храним реакции для каждого сообщения
 const postReactions = new Map(); // key: messageId, value: { like: Set, unlike: Set }
 
 bot.on("message", async (ctx) => {
@@ -16,28 +16,30 @@ bot.on("message", async (ctx) => {
     const text = ctx.message.text;
     if (!text) return;
 
+    // Проверяем наличие хэштега
     const hasHashtag = ctx.message.entities?.some(e => e.type === "hashtag");
     if (!hasHashtag) return;
 
     const msgId = ctx.message.message_id;
-    const chatId = ctx.chat.id;
 
-    // Har bir postga bosh holatda like/unlike uchun Setlar
-    postReactions.set(msgId, {
-      like: new Set(),
-      unlike: new Set()
-    });
+    // Если реакции уже есть - не создаём заново
+    if (!postReactions.has(msgId)) {
+      postReactions.set(msgId, {
+        like: new Set(),
+        unlike: new Set()
+      });
 
-    await ctx.reply(
-      "Reaksiya qoldiring:",
-      {
-        reply_to_message_id: msgId,
-        ...Markup.inlineKeyboard([
-          Markup.button.callback("👍 0", `like_${msgId}`),
-          Markup.button.callback("👎 0", `unlike_${msgId}`)
-        ])
-      }
-    );
+      await ctx.reply(
+        "Reaksiya qoldiring:",
+        {
+          reply_to_message_id: msgId,
+          ...Markup.inlineKeyboard([
+            Markup.button.callback("👍 0", `like_${msgId}`),
+            Markup.button.callback("👎 0", `unlike_${msgId}`)
+          ])
+        }
+      );
+    }
   } catch (err) {
     console.error("Xatolik:", err);
   }
@@ -60,15 +62,14 @@ bot.on("callback_query", async (ctx) => {
       return ctx.answerCbQuery("Post topilmadi.");
     }
 
-    // Foydalanuvchi ilgari ovoz berganmi, tekshirish
+    // Проверяем, голосовал ли пользователь раньше
     if (reaction.like.has(fromId) || reaction.unlike.has(fromId)) {
       return ctx.answerCbQuery("Siz allaqachon ovoz bergansiz!");
     }
 
-    // Ovoz berish
     if (action === "like") {
       reaction.like.add(fromId);
-      // await ctx.answerCbQuery("Siz like berdingiz!");
+      await ctx.answerCbQuery("Siz like berdingiz!");
     } else if (action === "unlike") {
       reaction.unlike.add(fromId);
       await ctx.answerCbQuery("Siz unlike berdingiz!");
@@ -76,44 +77,22 @@ bot.on("callback_query", async (ctx) => {
       return ctx.answerCbQuery("Noma’lum amal.");
     }
 
-    // Ovozlar soni
     const likeCount = reaction.like.size;
     const unlikeCount = reaction.unlike.size;
 
-    // Inline tugmalarni yangilash
-   // Inline tugmalarni yangilash
+    // Обновляем кнопки с новым счётом
     await ctx.editMessageReplyMarkup(
-      {
-        reply_markup:  {
-            inline_keyboard: [
-                [
-                    {
-                        text: "text1",
-                        callback_data: "data1"
-                    }
-                ],
-                [
-                    {
-                        text: "text2",
-                        callback_data: "data2"
-                    }
-                ]
-            ]
-        }
-    },
-      chat_id: ctx.chat.id, 
-        message_id: ctx.callbackQuery.message.message_id
-    )
-);
-
-
+      Markup.inlineKeyboard([
+        Markup.button.callback(`👍 ${likeCount}`, `like_${messageId}`),
+        Markup.button.callback(`👎 ${unlikeCount}`, `unlike_${messageId}`)
+      ])
+    );
 
   } catch (err) {
     console.error("Callback xatolik:", err);
     await ctx.answerCbQuery("Xatolik yuz berdi!");
   }
 });
-
 
 (async () => {
   try {
