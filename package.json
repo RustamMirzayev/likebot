@@ -2,6 +2,7 @@
   "name": "likebot",
   "version": "1.0.0",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -11,6 +12,7 @@
   "description": "",
   "dependencies": {
     "lowdb": "^7.0.1",
+    "nodemon": "^3.1.10",
     "telegraf": "^4.16.3"
   }
 }
