@@ -1,14 +1,12 @@
-const { Telegraf, Markup } = require('telegraf');
+import { Telegraf, Markup } from 'telegraf';
+import { Low, JSONFile } from 'lowdb';
+
+const bot = new Telegraf('7691683453:AAFYXGzYEvfYbhzErB_vfygKxXUvXXUgESo');
+
+const adapter = new JSONFile('db.json');
+const db = new Low(adapter);
 
 async function main() {
-  // Dynamic import ES module uchun
-  const { Low, JSONFile } = await import('lowdb');
-
-  const bot = new Telegraf('7691683453:AAFYXGzYEvfYbhzErB_vfygKxXUvXXUgESo');
-
-  const adapter = new JSONFile('db.json');
-  const db = new Low(adapter);
-
   await db.read();
   db.data ||= { ratings: [] };
 
