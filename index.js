@@ -2,46 +2,41 @@ import { Telegraf, Markup } from "telegraf";
 
 const botToken = '7691683453:AAFYXGzYEvfYbhzErB_vfygKxXUvXXUgESo';
 if (!botToken) {
-  console.error("Bot token topilmadi!");
+  console.error("7691683453:AAFYXGzYEvfYbhzErB_vfygKxXUvXXUgESo");
   process.exit(1);
 }
 
 const bot = new Telegraf(botToken);
 
-// Храним реакции для каждого сообщения
-// key: originalMessageId, value: { like: Set, unlike: Set, replyMessageId: Number }
-const postReactions = new Map();
+// Har bir post uchun like/unlike va kimlar bosgani
+const postReactions = new Map(); // key: messageId, value: { like: Set, unlike: Set }
 
 bot.on("message", async (ctx) => {
   try {
-    const text = ctx.message.text;
-    if (!text) return;
+    // Faqat textli xabarlar bilan ishlaymiz
+    if (!ctx.message.text) return;
 
-    // Проверяем наличие хэштега
-    const hasHashtag = ctx.message.entities?.some(e => e.type === "hashtag");
-    if (!hasHashtag) return;
+    const msgId = ctx.message.message_id;
+    const chatId = ctx.chat.id;
 
-    const originalMsgId = ctx.message.message_id;
+    // Agar bu post uchun reaction hali bo'lmasa — yaratamiz
+    if (!postReactions.has(msgId)) {
+      postReactions.set(msgId, {
+        like: new Set(),
+        unlike: new Set()
+      });
 
-    // If reactions for this original message already exist, don't create new ones
-    if (!postReactions.has(originalMsgId)) {
-      const sentMessage = await ctx.reply(
+      // Javob sifatida like/unlike tugmalarini qo'shamiz
+      await ctx.reply(
         "Reaksiya qoldiring:",
         {
-          reply_to_message_id: originalMsgId,
+          reply_to_message_id: msgId,
           ...Markup.inlineKeyboard([
-            Markup.button.callback("👍 0", `like_${originalMsgId}`),
-            Markup.button.callback("👎 0", `unlike_${originalMsgId}`)
+            Markup.button.callback("👍 0", `like_${msgId}`),
+            Markup.button.callback("👎 0", `unlike_${msgId}`)
           ])
         }
       );
-
-      // Store the reply message ID along with the reaction data
-      postReactions.set(originalMsgId, {
-        like: new Set(),
-        unlike: new Set(),
-        replyMessageId: sentMessage.message_id // Store the ID of the message with buttons
-      });
     }
   } catch (err) {
     console.error("Xatolik:", err);
@@ -52,56 +47,53 @@ bot.on("callback_query", async (ctx) => {
   try {
     const data = ctx.callbackQuery?.data;
     const fromId = ctx.from?.id;
-    // We don't directly use ctx.callbackQuery.message.message_id for updating anymore.
-    // Instead, we get the replyMessageId from our stored `postReactions` map.
+    const message = ctx.callbackQuery?.message;
 
-    if (!data || !fromId) {
+    if (!data || !fromId || !message) {
       return ctx.answerCbQuery("Noto‘g‘ri so‘rov.");
     }
 
-    const [action, originalMsgIdStr] = data.split("_");
-    const originalMessageId = Number(originalMsgIdStr); // This is the ID of the *original* message with the hashtag
+    const [action, msgId] = data.split("_");
+    const messageId = Number(msgId);
 
-    const reactionData = postReactions.get(originalMessageId);
-    if (!reactionData) {
+    const reaction = postReactions.get(messageId);
+    if (!reaction) {
       return ctx.answerCbQuery("Post topilmadi.");
     }
 
-    // Check if the user has already reacted to this original post
-    if (reactionData.like.has(fromId) || reactionData.unlike.has(fromId)) {
+    // Agar foydalanuvchi allaqachon ovoz bergan bo'lsa
+    if (reaction.like.has(fromId) || reaction.unlike.has(fromId)) {
       return ctx.answerCbQuery("Siz allaqachon ovoz bergansiz!");
     }
 
     if (action === "like") {
-      reactionData.like.add(fromId);
+      reaction.like.add(fromId);
       await ctx.answerCbQuery("Siz like berdingiz!");
     } else if (action === "unlike") {
-      reactionData.unlike.add(fromId);
+      reaction.unlike.add(fromId);
       await ctx.answerCbQuery("Siz unlike berdingiz!");
     } else {
       return ctx.answerCbQuery("Noma’lum amal.");
     }
 
-    const likeCount = reactionData.like.size;
-    const unlikeCount = reactionData.unlike.size;
+    const likeCount = reaction.like.size;
+    const unlikeCount = reaction.unlike.size;
 
-    // Use the stored replyMessageId to update the correct message's keyboard
+    // Inline tugmalarni yangilash
     await ctx.telegram.editMessageReplyMarkup(
       ctx.chat.id,
-      reactionData.replyMessageId, // <-- Use the stored replyMessageId here
+      message.message_id,
       undefined,
       Markup.inlineKeyboard([
-        Markup.button.callback(`👍 ${likeCount}`, `like_${originalMessageId}`),
-        Markup.button.callback(`👎 ${unlikeCount}`, `unlike_${originalMessageId}`)
+        Markup.button.callback(`👍 ${likeCount}`, `like_${messageId}`),
+        Markup.button.callback(`👎 ${unlikeCount}`, `unlike_${messageId}`)
       ])
     );
-
   } catch (err) {
     console.error("Callback xatolik:", err);
     await ctx.answerCbQuery("Xatolik yuz berdi!");
   }
 });
-
 
 (async () => {
   try {
