@@ -1,108 +1,76 @@
-import { Telegraf, Markup } from "telegraf";
+const { Telegraf, Markup } = require('telegraf');
+const { Low, JSONFile } = require('lowdb');
 
-const botToken = '7691683453:AAFYXGzYEvfYbhzErB_vfygKxXUvXXUgESo';
-if (!botToken) {
-  console.error("7691683453:AAFYXGzYEvfYbhzErB_vfygKxXUvXXUgESo");
-  process.exit(1);
-}
+const bot = new Telegraf('7691683453:AAFYXGzYEvfYbhzErB_vfygKxXUvXXUgESo'); // Tokenni almashtiring
 
-const bot = new Telegraf(botToken);
+// Database sozlamasi
+const adapter = new JSONFile('db.json');
+const db = new Low(adapter);
 
-// Har bir post uchun like/unlike va kimlar bosgani
-const postReactions = new Map(); // key: messageId, value: { like: Set, unlike: Set }
+async function main() {
+  // DB ni o‘qish va boshlang‘ich holatini yaratish
+  await db.read();
+  db.data ||= { ratings: [] };
 
-bot.on("message", async (ctx) => {
-  try {
-    // Faqat textli xabarlar bilan ishlaymiz
-    if (!ctx.message.text) return;
+  // Guruhdagi har bir xabardan keyin baholash tugmalari chiqarish
+  bot.on('message', async (ctx) => {
+    if (!ctx.message || !ctx.message.text || ctx.message.chat.type === 'private') return;
 
     const msgId = ctx.message.message_id;
-    const chatId = ctx.chat.id;
+    const chatId = ctx.message.chat.id;
 
-    // Agar bu post uchun reaction hali bo'lmasa — yaratamiz
-    if (!postReactions.has(msgId)) {
-      postReactions.set(msgId, {
-        like: new Set(),
-        unlike: new Set()
-      });
-
-      // Javob sifatida like/unlike tugmalarini qo'shamiz
-      await ctx.reply(
-        "Reaksiya qoldiring:",
-        {
-          reply_to_message_id: msgId,
-          ...Markup.inlineKeyboard([
-            Markup.button.callback("👍 0", `like_${msgId}`),
-            Markup.button.callback("👎 0", `unlike_${msgId}`)
-          ])
-        }
-      );
-    }
-  } catch (err) {
-    console.error("Xatolik:", err);
-  }
-});
-
-bot.on("callback_query", async (ctx) => {
-  try {
-    const data = ctx.callbackQuery?.data;
-    const fromId = ctx.from?.id;
-    const message = ctx.callbackQuery?.message;
-
-    if (!data || !fromId || !message) {
-      return ctx.answerCbQuery("Noto‘g‘ri so‘rov.");
-    }
-
-    const [action, msgId] = data.split("_");
-    const messageId = Number(msgId);
-
-    const reaction = postReactions.get(messageId);
-    if (!reaction) {
-      return ctx.answerCbQuery("Post topilmadi.");
-    }
-
-    // Agar foydalanuvchi allaqachon ovoz bergan bo'lsa
-    if (reaction.like.has(fromId) || reaction.unlike.has(fromId)) {
-      return ctx.answerCbQuery("Siz allaqachon ovoz bergansiz!");
-    }
-
-    if (action === "like") {
-      reaction.like.add(fromId);
-      await ctx.answerCbQuery("Siz like berdingiz!");
-    } else if (action === "unlike") {
-      reaction.unlike.add(fromId);
-      await ctx.answerCbQuery("Siz unlike berdingiz!");
-    } else {
-      return ctx.answerCbQuery("Noma’lum amal.");
-    }
-
-    const likeCount = reaction.like.size;
-    const unlikeCount = reaction.unlike.size;
-
-    // Inline tugmalarni yangilash
-    await ctx.telegram.editMessageReplyMarkup(
-      ctx.chat.id,
-      message.message_id,
-      undefined,
-      Markup.inlineKeyboard([
-        Markup.button.callback(`👍 ${likeCount}`, `like_${messageId}`),
-        Markup.button.callback(`👎 ${unlikeCount}`, `unlike_${messageId}`)
+    await ctx.reply('Iltimos, ushbu xabarga baho bering:', {
+      reply_to_message_id: msgId,
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('👍', `like_${chatId}_${msgId}`), Markup.button.callback('👎', `dislike_${chatId}_${msgId}`)]
       ])
-    );
-  } catch (err) {
-    console.error("Callback xatolik:", err);
-    await ctx.answerCbQuery("Xatolik yuz berdi!");
-  }
-});
+    });
+  });
 
-(async () => {
-  try {
-    await bot.launch();
-    console.log("✅ Bot ishga tushdi");
-  } catch (err) {
-    console.error("❌ Bot ishga tushmadi:", err);
-  }
-})();
+  // Baholash tugmalariga ishlov berish
+  bot.on('callback_query', async (ctx) => {
+    const callbackData = ctx.callbackQuery.data;
+    const userId = ctx.from.id;
 
-process.once("SIGINT", () => bot.stop("SIGINT"));
-process.once("SIGTERM", () => bot.stop("SIGTERM"));
+    const [action, chatId, msgId] = callbackData.split('_');
+
+    // Foydalanuvchi oldin baho berganmi?
+    const oldRating = db.data.ratings.find(r => r.userId === userId && r.msgId === msgId && r.chatId === chatId);
+    if (oldRating) {
+      await ctx.answerCbQuery('Siz allaqachon baho bergansiz!');
+      return;
+    }
+
+    // Yangi bahoni saqlash
+    db.data.ratings.push({
+      userId,
+      chatId,
+      msgId,
+      value: action === 'like' ? 1 : -1
+    });
+    await db.write();
+
+    await ctx.answerCbQuery(`Siz ${action === 'like' ? '👍' : '👎'} baho berdingiz!`);
+
+    // Baho statistikasi
+    const allRatings = db.data.ratings.filter(r => r.msgId === msgId && r.chatId === chatId);
+    const likes = allRatings.filter(r => r.value === 1).length;
+    const dislikes = allRatings.filter(r => r.value === -1).length;
+
+    await ctx.editMessageReplyMarkup({
+      inline_keyboard: [
+        [
+          Markup.button.callback(`👍 ${likes}`, `like_${chatId}_${msgId}`),
+          Markup.button.callback(`👎 ${dislikes}`, `dislike_${chatId}_${msgId}`)
+        ]
+      ]
+    });
+  });
+
+  // Botni ishga tushurish
+  await bot.launch();
+
+  console.log('Bot ishga tushdi...');
+}
+
+main().catch(console.error);
