@@ -44,57 +44,62 @@ bot.on("message", async (ctx) => {
     console.error("Xatolik:", err);
   }
 });
+
+// ... (rest of your code)
+
 bot.on("callback_query", async (ctx) => {
-  try {
-    const data = ctx.callbackQuery?.data;
-    const fromId = ctx.from?.id;
-    const message = ctx.callbackQuery?.message;
+  try {
+    const data = ctx.callbackQuery?.data;
+    const fromId = ctx.from?.id;
+    const message = ctx.callbackQuery?.message; // This refers to the "Reaksiya qoldiring:" message
 
-    if (!data || !fromId || !message) {
-      return ctx.answerCbQuery("Noto‘g‘ri so‘rov.");
-    }
+    if (!data || !fromId || !message) {
+      return ctx.answerCbQuery("Noto‘g‘ri so‘rov.");
+    }
 
-    const [action, msgId] = data.split("_");
-    const messageId = Number(msgId);
+    const [action, msgId] = data.split("_");
+    const originalMessageId = Number(msgId); // This is the ID of the *original* message with the hashtag
 
-    const reaction = postReactions.get(messageId);
-    if (!reaction) {
-      return ctx.answerCbQuery("Post topilmadi.");
-    }
+    const reaction = postReactions.get(originalMessageId);
+    if (!reaction) {
+      return ctx.answerCbQuery("Post topilmadi.");
+    }
 
-    if (reaction.like.has(fromId) || reaction.unlike.has(fromId)) {
-      return ctx.answerCbQuery("Siz allaqachon ovoz bergansiz!");
-    }
+    if (reaction.like.has(fromId) || reaction.unlike.has(fromId)) {
+      return ctx.answerCbQuery("Siz allaqachon ovoz bergansiz!");
+    }
 
-    if (action === "like") {
-      reaction.like.add(fromId);
-      await ctx.answerCbQuery("Siz like berdingiz!");
-    } else if (action === "unlike") {
-      reaction.unlike.add(fromId);
-      await ctx.answerCbQuery("Siz unlike berdingiz!");
-    } else {
-      return ctx.answerCbQuery("Noma’lum amal.");
-    }
+    if (action === "like") {
+      reaction.like.add(fromId);
+      await ctx.answerCbQuery("Siz like berdingiz!");
+    } else if (action === "unlike") {
+      reaction.unlike.add(fromId);
+      await ctx.answerCbQuery("Siz unlike berdingiz!");
+    } else {
+      return ctx.answerCbQuery("Noma’lum amal.");
+    }
 
-    const likeCount = reaction.like.size;
-    const unlikeCount = reaction.unlike.size;
+    const likeCount = reaction.like.size;
+    const unlikeCount = reaction.unlike.size;
 
-    // Обновляем клавиатуру с явным указанием chat_id и message_id
-    await ctx.telegram.editMessageReplyMarkup(
-      ctx.chat.id,
-      message.message_id,
-      undefined,
-      Markup.inlineKeyboard([
-        Markup.button.callback(`👍 ${likeCount}`, `like_${messageId}`),
-        Markup.button.callback(`👎 ${unlikeCount}`, `unlike_${messageId}`)
-      ])
-    );
+    // Update the keyboard using the message.message_id of the "Reaksiya qoldiring:" message
+    await ctx.telegram.editMessageReplyMarkup(
+      ctx.chat.id,
+      message.message_id, // Use message.message_id here as it's the ID of the message with the buttons
+      undefined,
+      Markup.inlineKeyboard([
+        Markup.button.callback(`👍 ${likeCount}`, `like_${originalMessageId}`),
+        Markup.button.callback(`👎 ${unlikeCount}`, `unlike_${originalMessageId}`)
+      ])
+    );
 
-  } catch (err) {
-    console.error("Callback xatolik:", err);
-    await ctx.answerCbQuery("Xatolik yuz berdi!");
-  }
+  } catch (err) {
+    console.error("Callback xatolik:", err);
+    await ctx.answerCbQuery("Xatolik yuz berdi!");
+  }
 });
+
+// ... (rest of your code)
 
 
 (async () => {
